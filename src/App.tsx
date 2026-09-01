@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { FileUploadModal } from './components/FileUploadModal';
 import { UploadLanding } from './components/UploadLanding';
@@ -10,6 +10,9 @@ import { TabPaymentAudit } from './components/TabPaymentAudit';
 import { TabBranchDeepDive } from './components/TabBranchDeepDive';
 
 import type { ProcessedDashboardData } from './types/dashboard';
+import { parseExcelWorkbook } from './utils/excelParser';
+import { fetchReportsIndex, fetchReportArrayBuffer } from './utils/reportLoader';
+import type { ReportItem } from './utils/reportLoader';
 import { LayoutDashboard, TrendingUp, ShoppingBag, CreditCard, Building2 } from 'lucide-react';
 
 export function App() {
@@ -17,11 +20,40 @@ export function App() {
   const [selectedBranch, setSelectedBranch] = useState<string>('ALL');
   const [activeTab, setActiveTab] = useState<'executive' | 'trends' | 'products' | 'payments' | 'branch'>('executive');
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
-  const [isParsing] = useState<boolean>(false);
+  const [isParsing, setIsParsing] = useState<boolean>(false);
+
+  // GitHub Reports state
+  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [selectedReportId, setSelectedReportId] = useState<string>('');
+
+  // Fetch index of available GitHub reports on mount
+  useEffect(() => {
+    fetchReportsIndex().then((items) => {
+      setReports(items);
+    });
+  }, []);
 
   const handleDataParsed = (newData: ProcessedDashboardData) => {
     setData(newData);
     setSelectedBranch('ALL');
+  };
+
+  const handleSelectReport = async (report: ReportItem) => {
+    try {
+      setIsParsing(true);
+      setSelectedReportId(report.id);
+      
+      const buffer = await fetchReportArrayBuffer(report.url, report.fileName);
+      const parsedData = parseExcelWorkbook(buffer, report.fileName);
+      
+      setData(parsedData);
+      setSelectedBranch('ALL');
+      setIsParsing(false);
+    } catch (err: any) {
+      console.error('Failed to load GitHub report', err);
+      alert(err?.message || 'Gagal memuat laporan dari server.');
+      setIsParsing(false);
+    }
   };
 
   const handleExportPdf = () => {
@@ -38,6 +70,9 @@ export function App() {
         onSelectBranch={setSelectedBranch}
         onOpenUpload={() => setIsUploadOpen(true)}
         onExportPdf={handleExportPdf}
+        reports={reports}
+        selectedReportId={selectedReportId}
+        onSelectReport={handleSelectReport}
         isParsing={isParsing}
       />
 
@@ -124,6 +159,8 @@ export function App() {
         ) : (
           <UploadLanding
             onDataParsed={handleDataParsed}
+            reports={reports}
+            onSelectReport={handleSelectReport}
             isParsing={isParsing}
           />
         )}
