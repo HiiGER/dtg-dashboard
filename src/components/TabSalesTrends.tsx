@@ -14,8 +14,9 @@ interface TabSalesTrendsProps {
 export const TabSalesTrends: React.FC<TabSalesTrendsProps> = ({ data, selectedBranch }) => {
   const { dailyOmsetAgustus, dailyOmsetJuli } = data;
 
-  let agustusBranchData = dailyOmsetAgustus;
-  let juliBranchData = dailyOmsetJuli;
+  // Filter out GRAND TOTAL row when summing all branches to prevent double counting
+  let agustusBranchData = dailyOmsetAgustus.filter(d => d.branch !== 'GRAND TOTAL');
+  let juliBranchData = dailyOmsetJuli.filter(d => d.branch !== 'GRAND TOTAL');
 
   if (selectedBranch !== 'ALL') {
     agustusBranchData = dailyOmsetAgustus.filter(d => d.branch === selectedBranch);
@@ -27,7 +28,7 @@ export const TabSalesTrends: React.FC<TabSalesTrendsProps> = ({ data, selectedBr
   const combinedDaily: { day: string; Agustus: number; Juli: number }[] = [];
 
   for (let dayNum = 1; dayNum <= daysCount; dayNum++) {
-    // Sum across branches for this day
+    // Sum across individual branches for this day
     let sumAgustus = 0;
     agustusBranchData.forEach(b => {
       const dayItem = b.daily.find(d => d.dayNum === dayNum);
@@ -146,21 +147,27 @@ export const TabSalesTrends: React.FC<TabSalesTrendsProps> = ({ data, selectedBr
 
       {/* Heatmap Matrix of Days */}
       <div className="glass-panel rounded-2xl p-5 border border-slate-800">
-        <h4 className="text-sm font-bold text-slate-100 mb-3 flex items-center gap-2">
+        <h4 className="text-sm font-bold text-slate-100 mb-1 flex items-center gap-2">
           <Award className="w-4 h-4 text-amber-400" />
           Heatmap Intensitas Omset Harian (Agustus)
         </h4>
+        <p className="text-xs text-slate-400 mb-4">
+          Warna ditentukan dari rasio omset harian terhadap rata-rata omset harian ({formatShortRupiah(avgDailyOmset)}/hari):
+          <span className="text-emerald-400 font-bold ml-1">Hijau glowing</span> (&gt;140% rata-rata), 
+          <span className="text-brand-400 font-bold ml-1">Biru</span> (&gt;100% rata-rata), 
+          <span className="text-slate-400 font-bold ml-1">Slate</span> (&le;100% rata-rata).
+        </p>
         <div className="grid grid-cols-7 gap-2">
           {combinedDaily.map((item, idx) => {
             const ratio = avgDailyOmset > 0 ? item.Agustus / avgDailyOmset : 0;
-            let bgColor = 'bg-slate-900 border-slate-800';
-            if (ratio > 1.4) bgColor = 'bg-emerald-500/30 border-emerald-500/60 text-emerald-300 glow-emerald';
-            else if (ratio > 1.0) bgColor = 'bg-brand-500/20 border-brand-500/40 text-brand-300';
-            else if (ratio > 0.7) bgColor = 'bg-slate-800 border-slate-700 text-slate-300';
+            let bgColor = 'bg-slate-900 border-slate-800 text-slate-400';
+            if (ratio > 1.4) bgColor = 'bg-emerald-500/30 border-emerald-500/60 text-emerald-300 glow-emerald font-bold';
+            else if (ratio > 1.0) bgColor = 'bg-brand-500/20 border-brand-500/40 text-brand-300 font-semibold';
+            else if (ratio > 0.7) bgColor = 'bg-slate-800/80 border-slate-700 text-slate-300';
 
             return (
               <div key={idx} className={`p-2.5 rounded-xl border text-center transition-all ${bgColor}`}>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.day}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{item.day}</p>
                 <p className="text-xs font-extrabold mt-1">{formatShortRupiah(item.Agustus)}</p>
               </div>
             );
